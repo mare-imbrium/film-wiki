@@ -1,0 +1,52 @@
+# film-wiki
+
+This repo contains code that retrieves a movie page from wikipedia and parses the movie info and stores it in an sqlite database.
+There are some programs to query the data, or view the pages too.
+
+This is NOT a database of all movies. It only contains a few thousand select movies that are mostly award winners or notable ones. The json database is much larger and contains tens of thousands of movies taking data using the OMDB api.
+
+`fetchupdate.rb` is the main program which reads a list of urls from the given file or urls.txt
+  fetches the wiki link, and updates the info, and saves the page in ./wiki.
+
+Earlier, I kept the wiki dump in the database and allowed the user to view it by piping to w3m. However,
+this does not allow linking across pages. So now the wiki page are on the disk and one can click and move to other movies.
+
+
+In some cases, the same movie can have two different urls since one url redirects to the other. 
+There should be very few cases like this, such as The Barkleys of Broadway. These got introduced
+when i took movies from other lists such as those with various awards.
+
+The first 1000 or more rows are created from a wiki entry of films that have won an oscar.
+Then i added movies of various directors.
+THen i added movies from lists of oscar nominated movies, movies that won or nominated for
+best actor, cinematography, best dir.
+
+I need to add the list for best actress nominees and foriegn movie nominees.
+
+I have created separate tables for these lists so i can create a field in movies_back and update
+that field with a YES or something. that way we can query for movies that won BP and BA or BD etc.
+
+
+## TODO
+
+- Update oscar nominations and win count every March using data from list.rb.
+- currently, there is only oscar info till 2012
+- Also update the other fields of best pic, actor, actress etc. Do we have programs to do this 
+ so it is not totally manual?
+
+
+## ISSUE 
+
+ i am noticing a lot of redirecting urls are causeing duplicates here. som pages have
+urls that redirect. thus our key field needs to remove all junk and do a match.
+
+
+checking dupes: 
+
+418 good earth points to book
+
+2134 points to movie but does not have the acad count info, need to combine both
+   correct url and requery that ? or delete 418 and manually update 2134 with count and change id?
+
+We need a prog to update info for a given url (or id), if we've updated the url
+but to avoid duplication of processing.
