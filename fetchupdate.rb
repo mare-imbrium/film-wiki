@@ -8,6 +8,9 @@ require 'fileutils'
 # http://ruby-doc.org/stdlib-1.9.3/libdoc/uri/rdoc/URI/Escape.html
 require 'URI'
 
+REVERSE    = "\e[7m"
+REVERSE_OFF    = "\e[27m"
+
 # DESCRIPTION: based on wikipedia URLS in urls.txt, fetches wikipage and stores in wiki directory,
 #     parses the wiki page and updates movie table, and also movie_wiki table with page.
 #     You may pass in name of file with urls.
@@ -39,6 +42,7 @@ require 'URI'
 #     on disk.
 
 ## Changes:
+# 2016-01-15 - 18:12 insert into movie table only if data found.
 # 2016-01-15 - 12:25 remove insert into movie_wiki since it is not used anylonger. I am
 #              using the file on disk, since i can hyperlink from it to other files.
 #
@@ -46,9 +50,8 @@ require 'URI'
 # for the newly added files we need to extract various fields from the info box.
 # But now we also need titles since we only put id and url earlier
 #
+# TODO - wget to trap errorr so we can exit, rather than keep going on. like internet issue
 # TODO: sometimes it is not a movie, how to avoid updating such a link
-# Also, instead of storing as a number, we need to store page as film link
-# so we validate and not repeat the download, if we need to rerun.
 def getdb
   $db = SQLite3::Database.new("movie.sqlite")
 end
@@ -65,6 +68,7 @@ end
 # ---------------  START -----------------------------
 getdb
 file = File.open('insert.log', File::WRONLY | File::APPEND | File::CREAT)
+urllog = File.open("url.log", 'a');
 $log = Logger.new(file)
 #$log = Logger.new((File.join(ENV["LOGDIR"] || "./" ,"z.log")))
 
@@ -78,11 +82,10 @@ $my_errors = []
 filex = ARGV[0]
 filex ||= "urls.txt"
 puts "Using #{filex}"
-#filex="x.200"
-# XXX this screws up if url starts with https
 HOST="https://en.wikipedia.org"
 OLDHOST="http://en.wikipedia.org"
 counter=1
+inserting = true
 File.open(filex, "r") do |fh|
   fh.each_line do |parturl|
     if parturl.index("&")
@@ -108,7 +111,7 @@ File.open(filex, "r") do |fh|
       $log.error "Don't know how to handle #{parturl}"
       exit(1)
     end
-    inserting = false
+    #inserting = false
     next if parturl.nil? || parturl.strip == ""
     parturl.chomp!
     nid = counter + starting
@@ -131,16 +134,20 @@ File.open(filex, "r") do |fh|
       # prior to inserting check if ther is _(film) in url, remove and check for url
       # this is a case of redirection and is resulting in dupes. However, the source
       # must also be corrected if it is being used in a join.
-      puts "=======>>>>>>> INSERTING row #{nid} for '#{parturl}'"
-      #exit
-      inserting = true
-      atitle = parturl.sub("/wiki/","").gsub("_"," ")
-      #$db.execute("insert into #{table} (id, url) values (?,?)", [nid, parturl])
-      #puts "doing an insert since some pages genuinely have little data such as very old, new or short films"
-      $db.execute("insert into #{table} (id, url, title, key) values (?,?,?,?)", [nid, parturl, atitle, key])
-      $log.debug "INS:#{table}:#{nid}:#{parturl}, #{key}"
-      inserting = false
-      counter += 1
+      if false
+        # 2016-01-15 - NOTE no longer inserting here, since sometimes the link is bad
+        # and we have to delete the rows later.
+        puts "=======>>>>>>> INSERTING row #{nid} for '#{parturl}'"
+        #exit
+        inserting = true
+        atitle = parturl.sub("/wiki/","").gsub("_"," ")
+        #$db.execute("insert into #{table} (id, url) values (?,?)", [nid, parturl])
+        #puts "doing an insert since some pages genuinely have little data such as very old, new or short films"
+        $db.execute("insert into #{table} (id, url, title, key) values (?,?,?,?)", [nid, parturl, atitle, key])
+        $log.debug "INS:#{table}:#{nid}:#{parturl}, #{key}"
+        inserting = false
+        counter += 1
+      end
     else
       puts "exists #{id} for #{parturl}"
       next
@@ -174,7 +181,7 @@ File.open(filex, "r") do |fh|
       #wikiid = $db.get_first_value "select max(id) from #{wikitable};"
       #wikiid += 1
       # changed on 2015-12-16 - now using same id in both tables so easier to link on sql client.
-      wikiid = nid
+      #wikiid = nid
       # TODO 2015-12-29 - why don't we insert into movie here, so no junk updates
       #$db.execute(" insert into #{wikitable} (id, url, wiki) values (?,?,?)", [wikiid, parturl, text] )
     end
@@ -185,6 +192,9 @@ File.open(filex, "r") do |fh|
     # wikipedia encodes the URL, which makes browsers unable to link if file saved in encoded manner
     # decode converts % symbols back to punctuation or unicode character
     _file = URI.decode(_file)
+    # TODO we need to write this filename in the database so we can open the file if user selects title
+    #  from a query
+    #  parturl has removed /wiki/ replaced / with _, then decode URL and added wiki/ folder name and .html to get filename
     _ff = Shellwords.escape(_file)
     File.open(_file,"w") {|f2| f2.write(text) }
     type = `file #{_ff}`
@@ -210,13 +220,16 @@ File.open(filex, "r") do |fh|
       title.gsub('(film)','')
       title = title.strip
       $title = title
-      puts " ============================================================= "
-      puts "-----  updating title to #{title} "
-      puts " ============================================================= "
-      # this often contains (film) or (1978 film) etc, so we try later to get a better one
-      # doing this later when we insert
-      # now we insert it above, or else we were losing it
-      $db.execute("update movie set title = ? where url = ?", [ title, parturl] )
+      if false
+        # 2016-01-15 - 18:47 not updating any longer till we find the links box
+        puts " ============================================================= "
+        puts "-----  updating title to #{title} "
+        puts " ============================================================= "
+        # this often contains (film) or (1978 film) etc, so we try later to get a better one
+        # doing this later when we insert
+        # now we insert it above, or else we were losing it
+        $db.execute("update movie set title = ? where url = ?", [ title, parturl] )
+      end
     else 
       puts "title not found for #{id} #{parturl}"
       $my_errors << "no title for #{id}.. #{parturl} pls delete from movie and movie_wiki where id = #{id}"
@@ -241,8 +254,9 @@ File.open(filex, "r") do |fh|
       end
       if true
         if inserting
-          puts "ACTUAL INSERT for #{$title} #{nid} "
-          $db.execute("insert into #{table} (id, url, title) values (?,?,?)", [nid, parturl, $title])
+          puts "ACTUAL INSERT for #{REVERSE} #{$title} #{REVERSE_OFF}: #{nid} : #{parturl} : #{key} "
+          $db.execute("insert into #{table} (id, url, title, key) values (?,?,?,?)", [nid, parturl, $title, key])
+          urllog.puts parturl
           counter += 1
         end
       links[0].css("tr").each_with_index do |node, iix|
@@ -330,6 +344,7 @@ File.open(filex, "r") do |fh|
     sleep(2)
   end
 end
+urllog.close
 
 puts "Errors:"
 $my_errors.each do |e|
