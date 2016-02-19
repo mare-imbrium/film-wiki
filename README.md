@@ -29,13 +29,30 @@ that field with a YES or something. that way we can query for movies that won BP
 
 ## TODO
 
+- Upload TSV of the database after correcting bad rows. Some rows of actors have come in.
+- Check the other oscar tsv files and upload. What should location be ? one in wiki/src rest in /wiki ?
 - Update oscar nominations and win count every March using data from list.rb.
 - currently, there is only oscar info till 2012
 - Also update the other fields of best pic, actor, actress etc. Do we have programs to do this 
  so it is not totally manual?
+- movie_wiki table may have tt_code / imdb_url. we may like to get it into our movie database
+so we can pull more info or connect.
+- maybe have a TSV file of the info and upload it in GH so others can use it straight, since we don't have
+complex info.
 
+- redownload some url's esp the 2015 ones, and update all the fields. we need to have something to do 
+that. there should be some program that updates somewhere.
 
 ## ISSUE 
+
+- about 55 movies have no director
+- 262 movies have no starring (some may be documentaries).
+  Fading Gigolo has very little info, was downloaded too early before release.
+  Men in Black has no Starring info in the box.
+
+- we can for them crosscheck with the json database and update these 2 fields
+  or even link to the film-list database and update from there.
+
 
  i am noticing a lot of redirecting urls are causeing duplicates here. som pages have
 urls that redirect. thus our key field needs to remove all junk and do a match.
