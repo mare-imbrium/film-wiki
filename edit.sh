@@ -1,11 +1,12 @@
 #!/usr/bin/env zsh
-#  Last update: 2016-02-18 18:39
+#  Last update: 2016-02-18 20:26
 
 # Description: edit a given row and column
 # params: rowid and columns to edit
 
 if [  $# -eq 0 ]; then
     echo "Please pass a rowid and a field name to edit"
+    echo " Use s.sh to get the rowid of a film"
     exit 1
 fi
 rowid=$1
