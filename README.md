@@ -8,6 +8,25 @@ This is NOT a database of all movies. It only contains a few thousand select mov
 `fetchupdate.rb` is the main program which reads a list of urls from the given file or urls.txt
   fetches the wiki link, and updates the info, and saves the page in ./wiki.
 
+## NEW
+
+ I have broken up the `fetchupdate.rb` so it can be run independently to redownload and update the db.
+
+     ./downloadfilm.rb "/wiki/Fading_Gigolo"
+     ./downloadfilm.rb --force "/wiki/Fading_Gigolo" (to overwrite)
+
+ - parse to downloaded document giving path, and wiki url which is the key field. This results in a yml file
+   in the yml folder which matches the wiki file name with yml extension.
+
+     ./parsedoc.rb wiki/Fading_Gigolo.html /wiki/Fading_Gigolo
+
+ - update the yml file into the database. IF not existing, a new record will be inserted, else the record will 
+   be updated.
+
+     ./updateyml2db.rb -v yml/Fading_Gigolo.yml
+
+## EARLIER
+
 Earlier, I kept the wiki dump in the database and allowed the user to view it by piping to w3m. However,
 this does not allow linking across pages. So now the wiki page are on the disk and one can click and move to other movies.
 
@@ -53,6 +72,10 @@ that. there should be some program that updates somewhere.
 - we can for them crosscheck with the json database and update these 2 fields
   or even link to the film-list database and update from there.
 
+- don't we have to run convert_all_links.sh for the files downloaded by fetchupdate.rb ?
+ i seem to have done it long ago for files before creating the director files.
+ Recent files since Jan are not crosslinking.
+ Yes, i did run this in one shot on Dec 31st 2015. But we need to do it for all downloaded files.
 
  i am noticing a lot of redirecting urls are causeing duplicates here. som pages have
 urls that redirect. thus our key field needs to remove all junk and do a match.
