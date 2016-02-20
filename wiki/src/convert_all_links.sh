@@ -33,9 +33,10 @@ then
     echo "I got no filename. For stdin use --stdin." 1>&2
     exit 1
 elif [[ $1 == "--stdin" ]]; then
+    shift
     while IFS='' read line
     do
-        echo -e "$line"
+        echo -e "STDIN:$line"
         change_link "$line"
     done < /dev/stdin
 fi
