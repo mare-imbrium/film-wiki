@@ -352,3 +352,4 @@ $my_errors.each do |e|
 end
 puts "::: #{$my_errors.size}"
 puts "Inserted #{counter-1} rows starting at #{starting} "
+puts "New files need to be piped through convert_all_links.sh"
