@@ -8,7 +8,7 @@ require 'yaml'
 #  Description: xml-parse the downloaded wiki file into YML hash and store
 #       Author:  r kumar
 #         Date: 2016-02-19 - 20:34
-#  Last update: 2016-02-20 20:43
+#  Last update: 2016-02-21 13:27
 #      License: MIT License
 # ----------------------------------------------------------------------------- #
 # 2016-02-19 - I am trying to break the process of fetching and updating the db
@@ -155,6 +155,7 @@ def parse_doc _file, url
   return res
 end
 
+$opt_verbose = false
 if __FILE__ == $0
   begin
     # http://www.ruby-doc.org/stdlib/libdoc/optparse/rdoc/classes/OptionParser.html
@@ -165,6 +166,7 @@ if __FILE__ == $0
 
       opts.on("-v", "--[no-]verbose", "Run verbosely") do |v|
         options[:verbose] = v
+        $opt_verbose = v
       end
     end.parse!
 
@@ -185,8 +187,10 @@ if __FILE__ == $0
         f << YAML::dump(hash)
       end
       puts outfile
+      File.open("lastfile.tmp","w") {|f2| f2.write(outfile) }
     else
       $stderr.puts "No file updated due to errors"
+      File.open("lastfile.tmp","w") {|f2| f2.write("") }
       exit 1
     end
   ensure
