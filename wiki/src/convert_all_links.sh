@@ -3,7 +3,8 @@
 #
 #          FILE: convert_all_links.sh
 # 
-#         USAGE: ./convert_all_links.sh 
+#         USAGE: ./convert_all_links.sh FILENAME/S
+#                cat filenames | ./convert_all_links.sh --stdin
 # 
 #   DESCRIPTION: This converts all the links in the given file to point to current directory
 #                whether the file exists or not. In any case the link is useless.
