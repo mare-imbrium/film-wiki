@@ -32,8 +32,17 @@ def getdb
   if File.exist?(db)
     $db = SQLite3::Database.new("movie.sqlite")
   else
-    raise "#{db} does not exist here! Wrong path"
+    raise "#{$0}: #{db} does not exist here! Wrong path"
   end
+end
+def uri_to_filename parturl
+    partname = parturl.sub('/wiki/','')
+    partname = partname.gsub('/','_')
+    _file = "wiki/#{partname}.html"
+    # wikipedia encodes the URL, which makes browsers unable to link if file saved in encoded manner
+    # decode converts % symbols back to punctuation or unicode character
+    _file = URI.decode(_file)
+    return _file
 end
 
 # convert url to key
@@ -49,9 +58,10 @@ HOST="https://en.wikipedia.org"
 OLDHOST="http://en.wikipedia.org"
 #
 # parturl is "/wiki/film_name" without the https://en.wikipedia.org part
+# _file is path to save to (optional, if not given will be determined and written to a file)
 # @return filename / path file saved as
 # @return nil if error in url or nothing returned
-def fetchfilm parturl
+def fetchfilm parturl, _file=nil
   return nil unless parturl
   table = "movie"
     if parturl.index("&")
@@ -104,7 +114,7 @@ def fetchfilm parturl
     url = HOST + parturl.strip
     # still fails if ampersand in URL regardless of single or double quote
     # TODO should we try curl instead ?
-    text = %x[wget -O - "#{url}"] 
+    text = %x[wget -q -O - "#{url}"] 
     # 2015-12-29 - sometimes the URL is wrong, so we get a blank. The file has zero bytes
     # so we should check here
     if text.nil? or text.chomp == ""
@@ -112,12 +122,7 @@ def fetchfilm parturl
       #$my_errors << "no data fetched for #{parturl} pls check/correct."
       return nil
     end
-    partname = parturl.sub('/wiki/','')
-    partname = partname.gsub('/','_')
-    _file = "wiki/#{partname}.html"
-    # wikipedia encodes the URL, which makes browsers unable to link if file saved in encoded manner
-    # decode converts % symbols back to punctuation or unicode character
-    _file = URI.decode(_file)
+    #_file ||= uri_to_filename(parturl)
     # TODO we need to write this filename in the database so we can open the file if user selects title
     #  from a query
     #  parturl has removed /wiki/ replaced / with _, then decode URL and added wiki/ folder name and .html to get filename
@@ -161,9 +166,11 @@ if __FILE__ == $0
 
     parturl=ARGV[0];
     raise ArgumentError, "Require a wikipedia url of a movie" unless parturl
+    htmlpath = ARGV[1] || uri_to_filename(parturl);
     getdb
-    path = fetchfilm parturl
+    path = fetchfilm parturl, htmlpath
     $stdout.puts path
+    File.open("lastfile.tmp","w") {|f2| f2.write(path) }
   ensure
   end
 end
