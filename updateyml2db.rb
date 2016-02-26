@@ -1,10 +1,10 @@
-#!/usr/bin/env ruby -w
+#!/usr/bin/env ruby
 # ----------------------------------------------------------------------------- #
 #         File: updateyml2db.rb
 #  Description: this updates the movie.sqlite database from a yaml file
 #       Author:  
 #         Date: 2016-02-20 - 00:22
-#  Last update: 2016-02-20 20:32
+#  Last update: 2016-02-25 20:14
 #      License: MIT License
 # ----------------------------------------------------------------------------- #
 #
@@ -24,7 +24,7 @@ def readfile filename
   elsif filename.index ".yml"
     hash = YAML::load( File.open( filename ) )
   else
-    $stderr.puts "Don't know how to handle #{filename}, pass either .json or .yml"
+    $stderr.puts "#{$0}: Don't know how to handle #{filename}, pass either .json or .yml"
     exit 1
   end
 
@@ -33,9 +33,9 @@ def readfile filename
       puts "#{k} : #{v}"
     }
   end
-  puts "URL=" + hash[:url]
+  puts "#{$0}: URL=" + hash[:url]
   rowid = table_insert_hash $db, "movie", :url, hash
-  puts rowid
+  #puts rowid
 =begin
   url = hash.delete(:url)
   puts "URL=" + url
@@ -57,10 +57,12 @@ end
 #  a table has a NOT NULL or unique constraint that won't fail.
 def table_insert_hash db, table, keyname, hash
     key = hash.delete keyname
-    raise ArgumentError, "key is nil #{keyname}" unless key
+    raise ArgumentError, "#{$app}: key is nil #{keyname}" unless key
     str = "INSERT OR IGNORE INTO #{table} (#{keyname}) VALUES ('#{key}') ;"
     $stderr.puts str if $opt_verbose
     db.execute(str)
+    rowid = db.get_first_value( "select last_insert_rowid();")
+    puts "INSERTED: #{rowid}"
     str = "UPDATE #{table} SET "
     qstr = [] # question marks
     bind_vars = [] # values to insert
@@ -74,14 +76,16 @@ def table_insert_hash db, table, keyname, hash
     str << %Q[ WHERE #{keyname} = '#{key}' ]
     str << ";"
     $stderr.puts str if $opt_verbose
-    $stderr.puts "#{hash[keyname]}    #{hash["title"]} "
+    $stderr.puts "#{key}    #{hash["title"]} " if $opt_verbose
     #puts " #{hash["Title"]} #{hash["imdbID"]} "
     retval = db.execute(str, bind_vars)
     #rowid = db.get_first_value( "select last_insert_rowid();")
-    return retval
+    return rowid
 end
 
 if __FILE__ == $0
+   $app = File.basename($0)
+
   $opt_verbose = false
   begin
     # http://www.ruby-doc.org/stdlib/libdoc/optparse/rdoc/classes/OptionParser.html
@@ -100,11 +104,11 @@ if __FILE__ == $0
     #p ARGV
 
     if ARGV.size == 0
-      raise ArgumentError, "YML or JSON file with movie details required"
+      raise ArgumentError, "#{$0}: YML or JSON file with movie details required"
     end
     filename=ARGV[0];
     if !File.exist? filename
-      $stderr.puts "File does not exist #{filename}. Aborting."
+      $stderr.puts "#{$0}: File does not exist #{filename}. Aborting."
       exit 1
     end
     readfile filename
