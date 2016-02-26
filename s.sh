@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-# DESCRIPTION: does a LIKE search on title and prints out movies matching.
+# DESCRIPTION: does a LIKE search on title and prints out movies matching. --id ID
+#  --url to print url. -a to print all cols
 #sqlite3 movie.sqlite "select id, title, directed_by from movie where title like '%"$*"%';"
 # # rowid needed for deletes and for using edit.sh
 
