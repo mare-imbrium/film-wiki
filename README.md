@@ -11,6 +11,7 @@ This is NOT a database of all movies. It only contains a few thousand select mov
 ## NEW
 
  I have broken up the `fetchupdate.rb` so it can be run independently to redownload and update the db.
+ The combined command is now `fetchmovie.sh`.
 
      ./downloadfilm.rb "/wiki/Fading_Gigolo"
      ./downloadfilm.rb --force "/wiki/Fading_Gigolo" (to overwrite)
@@ -24,6 +25,17 @@ This is NOT a database of all movies. It only contains a few thousand select mov
    be updated.
 
      ./updateyml2db.rb -v yml/Fading_Gigolo.yml
+
+### TSV files
+
+There are three tab seperated values files exported from the sqlite database. You may import them into sqlite or any db and therefore avoid having to run the above programs.
+
+- movie.tsv: contains the data for each movie. (Ignore the ID column). This contains about 3400 movies as of date, most of them are either nominated or have won a major award. Recently, I have added more movies that are popular, or belong to some well-known directors or actors. The URL of the movie is the key field. However, sometimes there can be errors if some page used a URL that redirected to another. This could lead to a duplicate in the db.
+
+- imlinks.tsv: this contains the URL of the movie (wikipedia URL) and the corresponding IMDB ID (tt000000) code. This has been mostly manually done, or through programs that matched the title, so their could be errors.
+
+- crosslink.tsv: this is the output of a command that links the imdb Id from the above table to the IMDB id in the IMDB database and prints the title and year of that IMDB id. This output may be used to verify that the IMDB id is correct.
+
 
 ## EARLIER
 
@@ -48,7 +60,7 @@ that field with a YES or something. that way we can query for movies that won BP
 
 ## TODO
 
-- Upload TSV of the database after correcting bad rows. Some rows of actors have come in.
+x Upload TSV of the database after correcting bad rows. Some rows of actors have come in.
 - Check the other oscar tsv files and upload. What should location be ? one in wiki/src rest in /wiki ?
 - Update oscar nominations and win count every March using data from list.rb.
 - currently, there is only oscar info till 2012
