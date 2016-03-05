@@ -5,9 +5,11 @@
 #       Author: j kepler  http://github.com/mare-imbrium/canis/
 #         Date: 2016-01-02 - 13:14
 #      License: MIT
-#  Last update: 2016-01-02 20:57
+#  Last update: 2016-03-03 17:57
 # ----------------------------------------------------------------------------- #
 #  best_actor.rb  Copyright (C) 2012-2016 j kepler
+#  BUG - this misses last entry in file since it processes on a new <tr>
+#  2016-03-02 - 12:45 fixed in both sed/grep and if loop, print on end of tr 
 #
 require 'tempfile'
 def do_stuff file, start=1927
@@ -15,7 +17,7 @@ def do_stuff file, start=1927
   #tmpfile.write(str)
 
   #%x{ sed -n '/1927 in film/,/^<h2>/p' Academy_Award_for_Best_Actor.html | grep -oE 'href="[^"]*|^<tr>' | sed 's/href="//' | grep -v '^#' | grep -v '^/w/index.php' > #{tmpfile.path} }
-  %x{ sed -n '/#{start} in film/,/^<h2>/p' #{file} | grep -E 'href="[^"]*|^<tr>' | grep -v '/w/index.php' > #{tmpfile.path} }
+  %x{ sed -n '/#{start} in film/,/^<h2>/p' #{file} | grep -E 'href="[^"]*|^</tr>' | grep -v '/w/index.php' > #{tmpfile.path} }
   read_file_in_loop tmpfile.path
 
   tmpfile.close
@@ -40,7 +42,8 @@ def read_file_in_loop filename
     delim="\t"
 File.open(filename).each { |line|
   line = line.chomp
-  if line =~ /^<tr>/
+  #if line =~ /^<tr>/
+  if line =~ /^<\/tr/
     # new year
     y = "XXX"
     y = year.join("/") unless year.empty?
@@ -84,11 +87,15 @@ if __FILE__ == $0
     # http://www.ruby-doc.org/stdlib/libdoc/optparse/rdoc/classes/OptionParser.html
     require 'optparse'
     options = {}
+    start = 1927
     OptionParser.new do |opts|
       opts.banner = "Usage: #{$0} [options]"
 
       opts.on("-v", "--[no-]verbose", "Run verbosely") do |v|
         options[:verbose] = v
+      end
+      opts.on("--start INT", "Year to start") do |v|
+        start = v
       end
     end.parse!
 
@@ -96,10 +103,10 @@ if __FILE__ == $0
     #p ARGV
     file = ARGV[0] || "Academy_Award_for_Best_Actor.html"
     # start is the year the award started on, since we start looking from that line.
-    start = 1927
     if file.index("Supporting")
       start = 1936
     end
+    puts "start year is #{start} "
     do_stuff file, start
 
   ensure
