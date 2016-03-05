@@ -24,6 +24,7 @@
 #      REVISION:  2016-02-21 14:54
 #===============================================================================
 
+source ~/bin/sh_colors.sh
 # not required since we determine the file name beforehand
 #  and tell each program what the output file should be
 _getpath() {
@@ -36,31 +37,57 @@ _process() {
 
     URL=$1
     URL=$( echo "$URL" | sed 's|http.*\.org/|/|')
-    echo "Parturl is $URL"
+    echo "  Parturl is $URL"
     # determine html filename from URL
     HTMLFILE=$( ./uri2filename.sh $URL )
     # determine YML filename from path
     YMLFILE=$( echo "$HTMLFILE" | sed 's|\.html|.yml|;s|^wiki/|yml/|' )
-    echo "URL = $URL HTML = $HTMLFILE YML = $YMLFILE"
+    echo "  URL = $URL HTML = $HTMLFILE YML = $YMLFILE"
     # download the file and write it in wiki/
     ./downloadfilm.rb $VERBOSE_OPTION $DOWNLOAD_OPTION $URL "$HTMLFILE"
-    # parse the html and place parsed info as a YML in yml/
-    ./parsedoc.rb $VERBOSE_OPTION "$HTMLFILE" $URL "$YMLFILE"
-    # read YML into database
-    ./updateyml2db.rb $VERBOSE_OPTION "$YMLFILE"
-    # convert all links to local links so browser can link
-    wiki/src/convert_all_links.sh "$HTMLFILE"
+    if [  $? -eq 0 ]; then
+        # parse the html and place parsed info as a YML in yml/
+        ./parsedoc.rb $VERBOSE_OPTION "$HTMLFILE" $URL "$YMLFILE"
+        # read YML into database
+        ./updateyml2db.rb $VERBOSE_OPTION "$YMLFILE"
+        if [  $? -eq 1 ]; then
+            # duplicate detected after downloading the parsing html
+            return 1
+        fi
+        # convert all links to local links so browser can link
+        wiki/src/convert_all_links.sh "$HTMLFILE"
+        return 0
+    else
+        return 1
+    fi
 
  }
 
  # read URLs from a file
  _loop() {
      INFILE=$1
+     total=$( wc -l "$1" | cut -f1 -d' ' )
+     ctr=0
+     pctr=1
+     failctr=0
      while IFS='' read line
      do
-         echo -e "loop: $line"
+         pinfo ">> ($pctr/${total}) loop: $line"
          _process $line
+         if [  $? -eq 0 ]; then
+             (( ctr++ ))
+             (( pctr++ ))
+             echo "$line" >> url.log
+         else
+             (( failctr++ ))
+             echo "$line" >> error.log
+         fi
      done < $INFILE
+     pdone "$ctr of ${total} movies inserted/updated" 
+     if [[ $failctr -gt 0 ]]; then
+         perror "$failctr failed."
+     fi
+
  }
 ScriptVersion="1.0"
 
