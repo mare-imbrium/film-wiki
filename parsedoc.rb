@@ -3,12 +3,13 @@ require 'nokogiri'
 require 'logger'
 require 'fileutils'
 require 'yaml'
+require 'color'
 # ----------------------------------------------------------------------------- #
 #         File: parsedoc.rb
 #  Description: xml-parse the downloaded wiki file into YML hash and store
 #       Author:  r kumar
 #         Date: 2016-02-19 - 20:34
-#  Last update: 2016-02-21 13:27
+#  Last update: 2016-03-05 00:07
 #      License: MIT License
 # ----------------------------------------------------------------------------- #
 # 2016-02-19 - I am trying to break the process of fetching and updating the db
@@ -20,9 +21,10 @@ require 'yaml'
 def parse_doc _file, url
   return nil unless _file
   return nil unless url
-  # we don't have parturl
   parturl = url
-  key = nil
+  key = %x[ ./convert_url_to_key.rb "#{parturl}" ]
+  # FIXED XXX we have been putting in keys with  newline, so matching won't happen ! 2016-03-04 - 19:59 
+  key = key.chomp
   id = nil
   res = Hash.new
   #$my_errors = []
@@ -37,7 +39,7 @@ def parse_doc _file, url
     title = title.strip
     $title = title
   else 
-    puts "title not found for #{id} #{parturl}"
+    puts "ERROR: title not found for #{id} #{parturl}"
     #$my_errors << "no title for #{id}.. #{parturl} pls delete from movie and movie_wiki where id = #{id}"
     return nil
   end
@@ -78,11 +80,13 @@ def parse_doc _file, url
           #$my_errors << "s[0] nil skipping #{id}.. #{$title}" 
           # this could be another fake link that needs to be erased
           #$log.warn "XXX~SKIPPING~#{parturl}~no s[0]~#{$title}"
-          #next
-          return nil
+          $stderr.puts " ERROR: s[0] nil #{$title} "
+          $stderr.puts " node: #{node.text.strip} "
+          next
+          #return nil
         end
         if iix == 0
-          puts "-----  [#{s[0]}] could be title  updating ..."
+          puts "   -----  [#{s[0]}] could be title  updating ..."
           title = s[0]
           res[:title] = title
           #$db.execute("update movie set title = ? where url = ?", [ title, parturl] )
@@ -95,7 +99,7 @@ def parse_doc _file, url
         case s[0]
         when "Directed by"
           flag = true
-          puts "found #{s[0]}, #{s[1]}"
+          puts "   found #{s[0]}, #{s[1]}"
         when "Starring"
           flag = true
         when "Produced by"
@@ -108,7 +112,7 @@ def parse_doc _file, url
           flag = true
         when "Cinematography"
           flag = true
-        when "Editing by"
+        when "Editing by", "Edited by"
           flag = true
         when "Distributed by"
           flag = true
@@ -157,6 +161,7 @@ end
 
 $opt_verbose = false
 if __FILE__ == $0
+  include Color
   begin
     # http://www.ruby-doc.org/stdlib/libdoc/optparse/rdoc/classes/OptionParser.html
     require 'optparse'
@@ -186,10 +191,10 @@ if __FILE__ == $0
       File.open(outfile, 'w' ) do |f|
         f << YAML::dump(hash)
       end
-      puts outfile
+      #puts outfile
       File.open("lastfile.tmp","w") {|f2| f2.write(outfile) }
     else
-      $stderr.puts "No file updated due to errors"
+      $stderr.puts color("ERROR: #{$0}: No file updated due to errors", "red")
       File.open("lastfile.tmp","w") {|f2| f2.write("") }
       exit 1
     end
