@@ -21,6 +21,7 @@
 #      REVISION:  2015-12-31 15:15
 #===============================================================================
 
+# TODO accept verbose option since this is called in a loop and makes noise
 change_link() {
     local VAR="$1"
     if [[  -f "$VAR" ]]; then
@@ -37,14 +38,14 @@ elif [[ $1 == "--stdin" ]]; then
     shift
     while IFS='' read line
     do
-        echo -e "STDIN:$line"
+        echo -e "  STDIN:$line"
         change_link "$line"
     done < /dev/stdin
 fi
 
 for file in "$@"; do
-    echo "File: $file"
+    #echo "  File: $file"
     # takes all strings with href="/wiki/ and removes /wiki/ and appends .html to it.
     change_link "$file"
-    echo "$0 converted links in $file".
+    echo "  $0 converted links in $file".
 done
