@@ -4,13 +4,14 @@
 #  Description: this updates the movie.sqlite database from a yaml file
 #       Author:  
 #         Date: 2016-02-20 - 00:22
-#  Last update: 2016-02-25 20:14
+#  Last update: 2016-03-04 19:15
 #      License: MIT License
 # ----------------------------------------------------------------------------- #
 #
 
 require 'yaml'
 require 'sqlite3'
+require 'color'
 
 dbname = "movie.sqlite"
 $db = SQLite3::Database.new(dbname)
@@ -33,8 +34,9 @@ def readfile filename
       puts "#{k} : #{v}"
     }
   end
-  puts "#{$0}: URL=" + hash[:url]
+  puts "  #{$0}: URL=" + hash[:url]
   rowid = table_insert_hash $db, "movie", :url, hash
+  return rowid
   #puts rowid
 =begin
   url = hash.delete(:url)
@@ -49,20 +51,42 @@ def readfile filename
 
 
 end
+def check_duplicate(db, table, keyname, hash)
+  title = hash["title"]
+  year = hash["year"]
+  newurl = hash["url"]
+  str = %Q[select url from movie where title = "#{title}" and year = #{year};]
+  url = db.get_first_value( str )
+  if url
+    $stderr.puts color(" ERROR: #{newurl} already exist as #{url} -> #{title} #{year} ", "red" )
+    return true
+  end
+  return false
+end
 
 # takes a hash containing column name and value.
 # keyname is name of keyfield which will either be inserted or else updated. This assumes that 
 # all other values can be NULL since I update after insert.
 # TODO maybe to be safe do a complete insert followed by a UPDATE is no insert happened. this way if 
 #  a table has a NOT NULL or unique constraint that won't fail.
+# TODO - we should check title plus year to make sure that it's not there already, or key plus year
 def table_insert_hash db, table, keyname, hash
-    key = hash.delete keyname
+  ret = check_duplicate(db, table, keyname, hash)
+  key = hash.delete keyname
+  if ret
+    $stderr.puts color(" ERROR: not inserting #{key} ", "red" )
+    return -1
+  end
     raise ArgumentError, "#{$app}: key is nil #{keyname}" unless key
     str = "INSERT OR IGNORE INTO #{table} (#{keyname}) VALUES ('#{key}') ;"
     $stderr.puts str if $opt_verbose
     db.execute(str)
     rowid = db.get_first_value( "select last_insert_rowid();")
-    puts "INSERTED: #{rowid}"
+    if rowid == 0
+      puts color("  EXISTS:   #{rowid}", "red", "bold")
+    else
+      puts color("  INSERTED: #{rowid}", "green", "bold")
+    end
     str = "UPDATE #{table} SET "
     qstr = [] # question marks
     bind_vars = [] # values to insert
@@ -84,6 +108,7 @@ def table_insert_hash db, table, keyname, hash
 end
 
 if __FILE__ == $0
+  include Color
    $app = File.basename($0)
 
   $opt_verbose = false
@@ -111,7 +136,13 @@ if __FILE__ == $0
       $stderr.puts "#{$0}: File does not exist #{filename}. Aborting."
       exit 1
     end
-    readfile filename
+    ret = readfile filename
+    if ret == -1
+      # update aborted due to duplicate
+      exit 1
+    else
+      exit 0
+    end
   ensure
   end
 end
