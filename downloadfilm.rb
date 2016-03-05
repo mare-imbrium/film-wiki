@@ -1,4 +1,4 @@
-#!/usr/bin/env ruby -w
+#!/usr/bin/env ruby
 # ----------------------------------------------------------------------------- #
 #         File: downloadfilm.rb
 #  Description: fetch and save a film from wikipedia given a film URL.
@@ -26,6 +26,8 @@ require 'fileutils'
 # URI.decode needed to save file under original name so browsers can link
 # http://ruby-doc.org/stdlib-1.9.3/libdoc/uri/rdoc/URI/Escape.html
 require 'URI'
+# color.rb is in RUBYLIB path (in ~/work/projects/common)
+require 'color'
 
 def getdb
   db = "movie.sqlite"
@@ -45,15 +47,21 @@ def uri_to_filename parturl
     return _file
 end
 
-# convert url to key
-# NOTE: we really don't use key anywhere other than in an extra validation, so don't know if useless
+# ---------------- convert url to key ---------------------------------------------------
+# NOTE: This is actually necessary since other wiki pages (such as oscar and other lists) have slightly different
+#  links, some contain film or year+film some don't. So we need something other than URL to check.
+#   This is defective since it does not remove the year in film. We need to remove _(1925_film), 
+#   Also, we need to run decode_uri.rb to convert single quotes, question marks etc and remove them.
+#   2016-02-28 - taken care of removing year, and decoding % signs
 def converturl url
   return nil unless url
-  newurl = url.sub('/wiki/','').downcase().sub('_(film)','')
+  newurl = url.sub('/wiki/','').downcase().sub('_(film)','').sub(/([12][8901].._film)/,'')
+  newurl = URI.decode(newurl)
   # accept only alphanum and %
   newurl.gsub!(/[^0-9a-z%]/i,'')
   return newurl
 end
+
 HOST="https://en.wikipedia.org"
 OLDHOST="http://en.wikipedia.org"
 #
@@ -98,15 +106,17 @@ def fetchfilm parturl, _file=nil
     # in some cases the data on wiki has changed a lot, so we are forcing a download
     unless $opt_force
       if id.nil?
+        # NOTE 2016-02-28 - this can prevent me from downloading a movie with same name but different
+        #  year. I should check title + year at point of updating in db. or key + year.
         id = $db.get_first_value "select rowid from #{table} where key = '#{key}';"
         if id
           tmp = $db.get_first_value "select url from #{table} where key = '#{key}';"
-          $stderr.puts "FOUND another row with similar KEY #{key}: #{id} #{tmp} , skipping .."
+          $stderr.puts color("ERROR: FOUND another row with similar KEY #{key}: #{id} #{tmp} , skipping ..","red");
           #$log.warn "XXX:   FOUND another row with similar KEY #{key}: #{id} #{tmp} , SKIPPING .."
           return nil
         end
       else
-        $stderr.puts "FOUND another row with #{parturl} ... skipping "
+        $stderr.puts color("ERROR: FOUND another row with #{parturl} ... skipping","red");
         return nil
       end
     end
@@ -118,7 +128,7 @@ def fetchfilm parturl, _file=nil
     # 2015-12-29 - sometimes the URL is wrong, so we get a blank. The file has zero bytes
     # so we should check here
     if text.nil? or text.chomp == ""
-      $stderr.puts "=========== url is wrong, no data received #{url}. pls check ..."
+      $stderr.puts color("ERROR: =========== url is wrong, no data received #{url}. pls check ...", "red")
       #$my_errors << "no data fetched for #{parturl} pls check/correct."
       return nil
     end
@@ -145,6 +155,8 @@ end
 
 if __FILE__ == $0
   $opt_force = false
+  include Color
+  #print color("installed color\n", "blue", "bold" )
   begin
     # http://www.ruby-doc.org/stdlib/libdoc/optparse/rdoc/classes/OptionParser.html
     require 'optparse'
@@ -165,12 +177,20 @@ if __FILE__ == $0
     #p ARGV
 
     parturl=ARGV[0];
+    #print color("Got url #{parturl}\n", "blue", "underline")
+    #print color("installed color\n", "blue", "bold" )
     raise ArgumentError, "Require a wikipedia url of a movie" unless parturl
     htmlpath = ARGV[1] || uri_to_filename(parturl);
     getdb
     path = fetchfilm parturl, htmlpath
-    $stdout.puts path
-    File.open("lastfile.tmp","w") {|f2| f2.write(path) }
+    if path
+      print color("#{path}\n", "green", "bold")
+      File.open("lastfile.tmp","w") {|f2| f2.write(path) }
+      exit 0
+    else
+      # no update done since file existed, or some error in URL
+      exit 1
+    end
   ensure
   end
 end
