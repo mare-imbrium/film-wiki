@@ -5,7 +5,8 @@
 # 
 #         USAGE: ./comparerows.sh 
 # 
-#   DESCRIPTION: 
+#   DESCRIPTION: compare rows given a title
+#   see ./diffrows.sh which takes two rowids
 # 
 #       OPTIONS: ---
 #  REQUIREMENTS: ---
@@ -14,7 +15,7 @@
 #        AUTHOR: YOUR NAME (), 
 #  ORGANIZATION: 
 #       CREATED: 03/04/2016 23:22
-#      REVISION:  2016-03-05 09:40
+#      REVISION:  2016-03-10 14:46
 #===============================================================================
 
 PATT="$1"
