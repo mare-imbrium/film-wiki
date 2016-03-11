@@ -17,7 +17,14 @@
 #  Last update: 2016-02-20 18:45
 #      License: MIT License
 # ----------------------------------------------------------------------------- #
-#
+# == Notes
+#  - Ideally at time of download, before writing, i should check canonical and then
+#    modify HTML path accordingly but how do i inform previous process. Also,
+#    the parturl should then change, but how to inform caller ?
+# ----------------------------------------------------------------------------- #
+# == Changelog
+#  - 2016-03-06 - Added check comparing new url with existing canonical 
+# ----------------------------------------------------------------------------- #
 require 'shellwords'
 require 'sqlite3'
 require 'nokogiri'
@@ -106,6 +113,11 @@ def fetchfilm parturl, _file=nil
     # in some cases the data on wiki has changed a lot, so we are forcing a download
     unless $opt_force
       if id.nil?
+        id = $db.get_first_value %Q[select url from #{table} where upper(canonical) = "#{upperurl}";]
+        if id
+          $stderr.puts color("ERROR: FOUND another url with similar canonical : #{id} skipping ..","red");
+          return nil
+        end
         # NOTE 2016-02-28 - this can prevent me from downloading a movie with same name but different
         #  year. I should check title + year at point of updating in db. or key + year.
         id = $db.get_first_value "select rowid from #{table} where key = '#{key}';"
@@ -122,32 +134,65 @@ def fetchfilm parturl, _file=nil
     end
     id = nid
     url = HOST + parturl.strip
-    # still fails if ampersand in URL regardless of single or double quote
-    # TODO should we try curl instead ?
+    #
+    # BUG: still fails if ampersand in URL regardless of single or double quote
+    # TODO maybe we need to try Shellwords.escape since i am able to do it with wget on commandline
     text = %x[wget -q -O - "#{url}"] 
     # 2015-12-29 - sometimes the URL is wrong, so we get a blank. The file has zero bytes
     # so we should check here
     if text.nil? or text.chomp == ""
-      $stderr.puts color("ERROR: =========== url is wrong, no data received #{url}. pls check ...", "red")
+      $stderr.puts color("ERROR: =========== url is wrong or internet down, no data received #{url}. pls check ...", "red")
       #$my_errors << "no data fetched for #{parturl} pls check/correct."
+      sleep(60)
       return nil
     end
-    #_file ||= uri_to_filename(parturl)
-    # TODO we need to write this filename in the database so we can open the file if user selects title
-    #  from a query
-    #  parturl has removed /wiki/ replaced / with _, then decode URL and added wiki/ folder name and .html to get filename
-    _ff = Shellwords.escape(_file)
-    File.open(_file,"w") {|f2| f2.write(text) }
+    # 2016-03-08 - write to a temp folder and only copy to real name if file passes disambiguation check
+    tmpfile = _file.sub("wiki", "tmp")
+    File.open(tmpfile,"w") {|f2| f2.write(text) }
+
+    _ff = Shellwords.escape(tmpfile)
     type = `file #{_ff}`
 
     # check if its a zip
     # SOMETime it  comes in zip format. how do contreol that ?
     # if file says zipped then add gz extension and do a gunzip
     if type.index "gzip"
-      $stderr.puts "    gzip found, expanding"
-      FileUtils.mv _file, "#{_file}.gz"
+      $stderr.puts color("    gzip found, expanding", "blue")
+      FileUtils.mv tmpfile, "#{tmpfile}.gz"
       system "gunzip #{_ff}.gz"
       #text = File.readlines(_file).join("\n")
+    end
+
+    # 2016-03-08 - check if disambiguation page
+    ret = %x[ ./oldprogs/grepdisambiguation.sh "#{tmpfile}" ]
+    if ret and ret.size > 3
+      $stderr.puts color(" ERROR: This (#{tmpfile} is a disambiguation page, aborting ...", "red" )   
+      return nil
+    end
+    # all okay, move file to real folder
+    FileUtils.mv tmpfile, _file
+    #
+    # TODO 2016-03-06 - 13:09 extract canonical and compare with parturl
+    #  If different then change html path removing HOST and calling uri_to_filename 
+    #  Then change parturl and write to file so next program can pick up and adjust url, htmlpath and ymlpath.
+    #   We check after writing since the string could be in zip format.
+    # This could fail, we may need to use _ff instead here and in parsedoc
+    canonical = %x[ ./oldprogs/grepcanonical.sh -h "#{_file}" ]
+
+    # 2016-03-08 - read file and check for canonical. if so return error do not update table.
+    if canonical && canonical.size > 2
+      canonical = canonical.chomp
+      if ( (canonical != parturl) && (URI.decode(canonical) != parturl) )
+        suggestedurl = URI.decode(canonical);
+        # 2016-03-08 - if canon link contains disambiguation or '#' then return error
+        if suggestedurl.index("disambiguation") or suggestedurl.index("#")
+          $stderr.puts color(" ERROR: This (#{suggestedurl} is a disambiguation page, aborting ...", "red", "reverse")   
+          return nil
+        end
+        $stderr.puts color("  WARNING: canonical does not match url, should change name #{parturl} != #{canonical}...","red");
+        $stderr.puts color("  WARNING: we should rename file and url to: #{suggestedurl} and change the parturl in file and caller     ","red");
+        # if this works out, we can change the name of the file. and write new url and html path to a yml file.
+      end
     end
     return _file
 end
