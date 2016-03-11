@@ -30,7 +30,7 @@ CREATE TABLE "movie"(
   palme TEXT,
   goldenbear TEXT,
   goldenlion TEXT
-, htmlpath TEXT, best_actress CHAR(2), best_supp_actress CHAR(2), best_supp_actor CHAR(2));
+, htmlpath TEXT, best_actress CHAR(2), best_supp_actress CHAR(2), best_supp_actor CHAR(2), create_dt datetime, update_dt datetime, canonical TEXT, imdbid TEXT);
 CREATE UNIQUE INDEX movie_url on movie(url);
 CREATE TABLE imlinks2(
   "url" TEXT,
