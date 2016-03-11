@@ -9,22 +9,66 @@ require 'color'
 #  Description: xml-parse the downloaded wiki file into YML hash and store
 #       Author:  r kumar
 #         Date: 2016-02-19 - 20:34
-#  Last update: 2016-03-05 00:07
+#  Last update: 2016-03-10 21:09
 #      License: MIT License
 # ----------------------------------------------------------------------------- #
+# == TODO
+#   2016-03-10 - put all data in infobox into the hash since we only update what is
+#       in table.
+# == Changelog
+#
+# 2016-03-05 - adding create_dt to table so we know how old some row is.
 # 2016-02-19 - I am trying to break the process of fetching and updating the db
 #  into independent steps, so i can modify the DB if the page is updated etc.
 #  I am currently thinking we can create a YML or JSON hash and either return it
 #  or else store it in a folder, so it can be updated and then given to a program 
 #  that updates the table based on the YML file.
 
-def parse_doc _file, url
+def parse_doc _file, url=nil
   return nil unless _file
-  return nil unless url
-  parturl = url
+  #return nil unless url
+  #parturl = url
+  # 2016-03-06 - added canonical and imdbid fetch WE MAY HAVE already done this in download program
+  canonical = %x[ ./oldprogs/grepcanonical.sh -h "#{_file}" ]
+  if canonical && canonical.size > 2
+    canonical = canonical.chomp
+    decode_canonical= %x[ decode_uri.rb "#{canonical}" ]
+    decode_canonical = decode_canonical.chomp
+    # 2016-03-10 - if caller did not pass parturl then use from file
+    parturl ||= decode_canonical
+    # TODO 2016-03-06 - i think canonical must be decoded here before comparing and put into database in decoded format.
+    # TODO check that canonical is not blank
+    if decode_canonical != parturl
+      $stderr.puts color(" parsedoc: WARNING ! url #{parturl} does not match canonical: #{decode_canonical}.", "yellow", "reverse")
+      # XXX should we change the parturl if this is so ?
+      # what about saved file name ? we will landup having duplicates. will need to rename file and url
+    end
+  end
   key = %x[ ./convert_url_to_key.rb "#{parturl}" ]
   # FIXED XXX we have been putting in keys with  newline, so matching won't happen ! 2016-03-04 - 19:59 
   key = key.chomp
+  # ------------------------------------------------------------------------ #
+  #  extract imdb url and check for duplicates. Raise appropriate warnings.
+  #
+  imdbid = %x[ ./oldprogs/grepimdburl.sh -h "#{_file}" ]
+  imdbid = imdbid.chomp.strip
+  if imdbid and imdbid.index("tt")
+    if imdbid.index(" ")
+      # this can contain multiple space separated urls. 
+      ids = imdbid.split(" ").uniq
+      if ids.size == 1
+        imdbid = ids.first
+      else
+        $stderr.puts color("WARNING: There appear to be >1 imdbids: #{imdbid}","reverse")
+      end
+    else
+      $stderr.puts "  IMDBID: #{imdbid} found" if $opt_verbose
+    end
+  else
+    $stderr.puts color("WARNING: No imdbid found. THis could be a novel/story/play or other page.","reverse")
+    imdbid = nil
+  end
+  # ------------------------------------------------------------------------ #
   id = nil
   res = Hash.new
   #$my_errors = []
@@ -50,11 +94,12 @@ def parse_doc _file, url
   links = page.css("table[class = 'infobox vevent']")
   if links
     if links[0].nil?
-      puts " >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> "
-      puts "links[0] nil skipping #{id}.. #{$title}"
-      puts " <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< "
+      $stderr.puts " >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> "
+      $stderr.puts color("infobox nil skipping #{id}.. #{$title}. Link could be wrong.", "yellow","reverse")
+      $stderr.puts " Link may point to a disambiguation page, or book etc"
+      $stderr.puts " <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< "
       #$my_errors << "links[0] nil skipping #{id}.. #{$title} NO INSERT"
-      puts "Links: #{links}"
+      $stderr.puts "Links: #{links}"
       # XXX please check log file after each run to see what's been rejected.
       # it could be a genuine movie or a fake link
       #$log.warn "XXXX~#{parturl}~SKIPPING~#{id}"
@@ -69,7 +114,9 @@ def parse_doc _file, url
         res[:url] = parturl
         res[:title] = $title
         res[:key] = key
-        res[:htmlpath] = _file # TODO needs to be added in table
+        res[:htmlpath] = _file 
+        res["canonical"] = canonical
+        res["imdbid"] = imdbid if imdbid
       end
       links[0].css("tr").each_with_index do |node, iix|
         nt = node.text.strip.gsub(/&#160;/,' ')
@@ -80,14 +127,16 @@ def parse_doc _file, url
           #$my_errors << "s[0] nil skipping #{id}.. #{$title}" 
           # this could be another fake link that needs to be erased
           #$log.warn "XXX~SKIPPING~#{parturl}~no s[0]~#{$title}"
-          $stderr.puts " ERROR: s[0] nil #{$title} "
+          $stderr.puts " WARNING: s[0] nil #{$title} "
           $stderr.puts " node: #{node.text.strip} "
           next
           #return nil
         end
         if iix == 0
+          # movies with long names and a BR tag in between get truncated here
           puts "   -----  [#{s[0]}] could be title  updating ..."
-          title = s[0]
+          puts "    s is #{s.join(" ")} now using this from 2016-03-10 - "
+          title = s.join(" ");
           res[:title] = title
           #$db.execute("update movie set title = ? where url = ?", [ title, parturl] )
         end
@@ -114,9 +163,13 @@ def parse_doc _file, url
           flag = true
         when "Editing by", "Edited by"
           flag = true
+          # 2016-03-05 - pages have started using edited by so i am missing it
+          column = "editing_by"
         when "Distributed by"
           flag = true
-        when "Studio"
+        when "Studio", "Production company"
+          # 2016-03-06 - wiki has changed the label some time back
+          column = "studio"
           flag = true
         when "Country"
           flag = true
@@ -141,6 +194,10 @@ def parse_doc _file, url
           puts "setting year to #{_t[0]} ---------- " if $opt_verbose
           res[:year] = _t.first
           #$db.execute("update movie set year = ? where url = ?", [ _t[0], parturl] )
+        else
+          # 2016-03-10 - added this block so other data also goes in. that way when
+          #   field names change we can get that.
+          flag = true
         end
         if flag
           #puts "update #{id},column is #{column}, data is #{s.join}"
@@ -178,23 +235,31 @@ if __FILE__ == $0
     #p options
     #p ARGV
 
-    if ARGV.size < 2
+    if ARGV.size < 1
       raise ArgumentError, "parsedoc requires html filename and url, and optionally name of output YML file"
     end
     filename=ARGV[0];
     url = ARGV[1];
     outfile=ARGV[2] || filename.sub("wiki/","yml/").sub(".html",".yml")
+    # trying this so we can avoid passing url and have it picked up from file
+    if url and url.index("/wiki/")
+      # okay
+    else
+      url = nil
+    end
     hash  = parse_doc filename, url
     # if json extension then do a json file, if yml then yaml dump
     # write the yml
     if hash
+      # 2016-03-05 - adding create date to table so we know how old some row is.
+      hash["create_dt"] = File.ctime(filename).to_s[0,19]
       File.open(outfile, 'w' ) do |f|
         f << YAML::dump(hash)
       end
       #puts outfile
       File.open("lastfile.tmp","w") {|f2| f2.write(outfile) }
     else
-      $stderr.puts color("ERROR: #{$0}: No file updated due to errors", "red")
+      $stderr.puts color("ERROR: #{$0}: No file updated due to errors. Link could be wrong", "red")
       File.open("lastfile.tmp","w") {|f2| f2.write("") }
       exit 1
     end
