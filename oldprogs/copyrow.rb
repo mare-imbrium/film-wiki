@@ -12,6 +12,30 @@ require 'fileutils'
 # If update uRL will not be able to set without deleting.
 #
 
+  CLEAR      = "\e[0m"
+  BOLD       = "\e[1m"
+  BOLD_OFF       = "\e[22m"
+  REVERSE    = "\e[7m"
+  REVERSE_OFF    = "\e[27m"
+  RED        = "\e[31m"
+  GREEN      = "\e[32m"
+  BLUE       = "\e[34m"
+
+def pgreen text
+  $stderr.puts "#{GREEN}#{BOLD}#{text}#{BOLD_OFF}#{CLEAR}"
+end
+def pblue text
+  $stderr.puts "#{BLUE}#{BOLD}#{text}#{BOLD_OFF}#{CLEAR}"
+end
+def pred text
+  $stderr.puts "#{RED}#{BOLD}#{text}#{BOLD_OFF}#{CLEAR}"
+end
+def pbold text
+  $stderr.puts "#{BOLD}#{text}#{BOLD_OFF}"
+end
+def preverse text
+  $stderr.puts "#{REVERSE}#{text}#{REVERSE_OFF}"
+end
 
 def getdb
   $db = SQLite3::Database.new("../movie.sqlite")
@@ -33,8 +57,8 @@ $log = Logger.new((File.join(ENV["LOGDIR"] || "./" ,"X.log")))
 
 $log.level = Logger::DEBUG
 cols, *dummy = $db.execute2("select rowid, * from #{table} where rowid = ?;", [sou])
-dum, *data = $db.execute2("select rowid, title, url, directed_by from #{table} where rowid = ?;", [sou])
-dum, *datanew = $db.execute2("select rowid, title, url, directed_by from #{table} where rowid = ?;", [tar])
+dum, *data = $db.execute2("select rowid, title, url, directed_by, nom, won from #{table} where rowid = ?;", [sou])
+dum, *datanew = $db.execute2("select rowid, title, url, directed_by , nom, won from #{table} where rowid = ?;", [tar])
 
 puts "GOOD: "
 datanew.each { |c| print " #{c} , " }
@@ -51,7 +75,8 @@ $stdin.gets
 $my_errors = []
 #HOST="http://en.wikipedia.org"
 # do not update these fields
-[ "rowid", "id", "title", "year", "nom", "won", "seen", "rating", "poss_dupe"].each do |c|
+#[ "rowid", "id", "title", "year", "nom", "won", "seen", "rating", "poss_dupe"].each do |c|
+[ "rowid", "id", "title", "year", "seen", "rating", "poss_dupe"].each do |c|
   cols.delete c
 end
 cols.each do |c|
@@ -64,15 +89,21 @@ cols.each do |c|
   end
   sugg="n"
   if oval.nil? && nval
-    puts "YOU SHOULD update"
+    pbold "===> YOU SHOULD update"
     sugg = "y"
   end
   if oval && nval.nil?
-    puts "==> you should NOT update as you will overrwrite with nil"
+    pred "==> you should NOT update as you will overrwrite with nil"
     sugg = "n"
   end
-  puts " old val is: #{oval} "
-  puts " new val is #{c} = #{nval}, should i update: #{sugg}. (ENTER or n] "
+  puts " #{c} "
+  puts " old val is: #{oval}."
+  str1 = " new val is  #{nval}. Should i update: #{sugg}. (ENTER or n]: "
+  if sugg == "y"
+    pbold str1
+  else
+    print str1
+  end
   ans = $stdin.gets().chomp
   if ans == "n"
     puts "   skipping #{c} "
@@ -81,14 +112,14 @@ cols.each do |c|
   $db.execute("update #{table} set #{c} = ? where rowid = ?", [ nval, tar])
 end
 
-puts "New row is:"
+pbold "New row is:"
 cols, *nline = $db.execute2("select rowid, * from #{table} where rowid = ?;", [tar])
 nline[0].each_with_index do |v, i|
   puts " #{cols[i]} : #{v} "
 end
-puts "Should I delete #{sou} ? (y)"
+pbold "Should I delete #{sou} ? (y)"
 ans = $stdin.gets().chomp
 if ans == "y"
   $db.execute("delete from #{table} where rowid = ?", [ sou])
-  puts "deleted #{sou}"
+  pblue "deleted #{sou}"
 end
