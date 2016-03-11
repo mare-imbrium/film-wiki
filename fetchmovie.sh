@@ -31,6 +31,25 @@ _getpath() {
     path=$( cat lastfile.tmp | tr "\n" "" )
     echo ">>> lastfile has $path."
 }
+_update_url() {
+    # if we are changing the URL to the canonical, then update the URL in the table too
+    #  so that updates can happen.
+
+    SQLITE=$(brew --prefix sqlite)/bin/sqlite3
+    MYDATABASE=movie.sqlite
+    exists=$( $SQLITE $MYDATABASE <<!
+       select rowid from movie where url = "$DECODE_CANON";
+!
+)
+    if [[ -n "$exists" ]]; then
+        echo -e "\\033[1m\\033[0;31m${DECODE_CANON} already exists as ${exists}. Please merge. Cannot rename.\\033[22m\\033[0m" >&2
+        echo "rowid:$exists has $DECODE_CANON. Merge with $OLDURL" >> error.log
+        return 1
+    fi
+    $SQLITE $MYDATABASE <<!
+      UPDATE movie set url = "$DECODE_CANON" where url = "$OLDURL";
+!
+}
 
 # run the entire process for one url
 _process() {
@@ -46,10 +65,52 @@ _process() {
     # download the file and write it in wiki/
     ./downloadfilm.rb $VERBOSE_OPTION $DOWNLOAD_OPTION $URL "$HTMLFILE"
     if [  $? -eq 0 ]; then
+        # 2016-03-07 - here is where we can determing correct html and fix URL HTML and YML based on canonical
+
+        CANONICAL=$( ./oldprogs/grepcanonical.sh -h "${HTMLFILE}" )
+        if [[ -n "$CANONICAL" ]]; then
+            DECODE_CANON=$( echo "$CANONICAL" | decode_uri.rb )
+            if [[ "$URL" != "$DECODE_CANON" ]]; then
+                echo "   >>>> canon=$CANONICAL"
+                echo "   >>>> decod=$DECODE_CANON"
+                echo -e "  CHANGING url to $DECODE_CANON ... press ENTER"
+                #read ANS </dev/tty
+                OLDURL="$URL"
+                URL="$DECODE_CANON"
+                # TODO NOTE changing URL means that a new row can be inserted, although updateyml2db.rb will
+                #  prevent that from happening, so update will fail too. This is in case of a force update
+                #  if user wanted to update data, and have the URL corrected by canonical
+                ## Update the tables url from OLDURL to DECODE_CANON if OLD exists.
+                
+                _update_url "$OLDURL" "$DECODE_CANON"
+
+            fi
+            TMPFILE=$( ./uri2filename.sh "${CANONICAL}" )
+            if [[ "$TMPFILE" != "$HTMLFILE" ]]; then
+                echo -e "  CHANGING $HTMLFILE to $TMPFILE press ENTER"
+                #read ANS </dev/tty
+                # sometimes the case is different, so OSX gives an error, so i do this double move.
+                mv "$HTMLFILE" "$HTMLFILE.tmp"
+                mv "$HTMLFILE.tmp" "$TMPFILE"
+                HTMLFILE="$TMPFILE"
+                YMLFILE=$( echo "$HTMLFILE" | sed 's|\.html|.yml|;s|^wiki/|yml/|' )
+                echo "  +URL = $URL HTML = $HTMLFILE YML = $YMLFILE"
+            fi
+        else
+            echo "Could not find canonical link"
+        fi
+
+
+
         # parse the html and place parsed info as a YML in yml/
+        # NOTE: can we do without sending url to parsedoc since it reads up file ?
         ./parsedoc.rb $VERBOSE_OPTION "$HTMLFILE" $URL "$YMLFILE"
+        if [  $? -eq 1 ]; then
+            # no data in html file, probably wrong url.
+            return 1
+        fi
         # read YML into database
-        ./updateyml2db.rb $VERBOSE_OPTION "$YMLFILE"
+        ./updateyml2db.rb $VERBOSE_OPTION $DOWNLOAD_OPTION "$YMLFILE"
         if [  $? -eq 1 ]; then
             # duplicate detected after downloading the parsing html
             return 1
@@ -72,15 +133,17 @@ _process() {
      failctr=0
      while IFS='' read line
      do
-         pinfo ">> ($pctr/${total}) loop: $line"
+         pinfo ">> ($pctr/${total}) loop: $line      (failed $failctr)"
          _process $line
          if [  $? -eq 0 ]; then
              (( ctr++ ))
              (( pctr++ ))
              echo "$line" >> url.log
+             sleep 1
          else
              (( failctr++ ))
              echo "$line" >> error.log
+             sleep 5
          fi
      done < $INFILE
      pdone "$ctr of ${total} movies inserted/updated" 
