@@ -1,4 +1,4 @@
-CREATE TABLE "movie"(
+CREATE TABLE IF NOT EXISTS "movie"(
   id INT,
   title TEXT,
   year TEXT,
