@@ -5,8 +5,18 @@ There are some programs to query the data, or view the pages too.
 
 This is NOT a database of all movies. It only contains a few thousand select movies that are mostly award winners or notable ones. The json database is much larger and contains tens of thousands of movies taking data using the OMDB api.
 
-`fetchupdate.rb` is the main program which reads a list of urls from the given file or urls.txt
+`fetchupdate.rb` WAS the main program which reads a list of urls from the given file or urls.txt
   fetches the wiki link, and updates the info, and saves the page in ./wiki.
+It has now been broken into 3 programs which are called from `fetchmovie.sh`. I usually just issue: `./command fetch`
+for new files (or ./command force_fetch which downloads and updated the files).
+
+I recently introduced canonical url since different pages can have different URL's that get referred to the same movie url. I had hoped this url would be a permanent one. But i now discover that the URL of a movie changes over time. What once pointed to a movie, now becomes a disambiguation page. This happened since i wanted to update all the 3800 or so movies, and get their canonical urls. This makes it a bit difficult to prevent the same movie getting entered twice with two different URLs.
+I know compare title and year, and also imdbid with existing data to look for possible duplicates.
+
+It seems the imdbid is the only permanent entry in the database for a movie. Even titles can change over a period of time, or the year can be revised. However, many movies have multiple imdbid's so even that has to be corrected or examined.
+In such cases, i may store the other imdbids in another field.
+
+I am now thinking of dropping the `id` field. Earlier this was used to link with the movie_wiki table, which is no longer used since i store the wiki page in the wiki directory.
 
 ## NEW
 
