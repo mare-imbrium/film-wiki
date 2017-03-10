@@ -9,7 +9,7 @@ require 'color'
 #  Description: xml-parse the downloaded wiki file into YML hash and store
 #       Author:  r kumar
 #         Date: 2016-02-19 - 20:34
-#  Last update: 2016-03-10 21:09
+#  Last update: 2017-03-10 16:10
 #      License: MIT License
 # ----------------------------------------------------------------------------- #
 # == TODO
@@ -182,7 +182,8 @@ def parse_doc _file, url=nil
         when "Running time"
           flag = true
           # next was earlier Release date(s) but is now Release dates
-        when "Release date(s)", "Release dates"
+          # 2017-03-10 - now it is Release date
+        when "Release date(s)", "Release dates", "Release date"
           flag = true
           # calc year at this point
           _data = s[1..-1].join(",")
