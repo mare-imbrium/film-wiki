@@ -1,6 +1,5 @@
 #!/usr/bin/env bash 
 #===============================================================================
-#
 #          FILE: fetchmovie.sh
 # 
 #         USAGE: fetchmovie.sh  URL
@@ -10,19 +9,18 @@
 #      This is to replace fetchupdate.rb which did everything in one large loop,
 #      and thus i could not execute parts of it, like only updating the db or fetching a file again.
 #
+#       OPTIONS: --force force fetch of a file so as to update existing file.
+#        AUTHOR: kepler
+#       CREATED: 02/20/2016 23:58
+#      REVISION:  2018-02-23 12:37
+#      NOTES:
 #      After inserting, use the oldprogs/findimdbid_for_wikiurl.sh to generate a file called
 #      insert.tsv containing new urls and possible imdb ids. edit it and import it into 
 #      imlinks2.
-# 
-#       OPTIONS: --force force fetch of a file so as to update existing file.
-#  REQUIREMENTS: ---
-#          BUGS: ---
-#         NOTES: ---
-#        AUTHOR: YOUR NAME (), 
-#  ORGANIZATION: 
-#       CREATED: 02/20/2016 23:58
-#      REVISION:  2016-02-21 14:54
 #===============================================================================
+# CHANGELOG:
+# 2018-02-23 - added -W0 in various ruby files due to constant error coming from URI,rb in 2.5.0
+#   2018-02-21 - added code for fetching one URL and logging to url.log and error.log
 
 source ~/bin/sh_colors.sh
 # not required since we determine the file name beforehand
@@ -56,6 +54,10 @@ _process() {
 
     URL=$1
     URL=$( echo "$URL" | sed 's|http.*\.org/|/|')
+    if [[ -z "$1" ]]; then
+        echo "Blank URL received"
+        return 0
+    fi
     echo "  Parturl is $URL"
     # determine html filename from URL
     HTMLFILE=$( ./uri2filename.sh $URL )
@@ -65,6 +67,7 @@ _process() {
     # download the file and write it in wiki/
     ./downloadfilm.rb $VERBOSE_OPTION $DOWNLOAD_OPTION $URL "$HTMLFILE"
     if [  $? -eq 0 ]; then
+        pverbose "AFTER DOWNLOADFILM"
         # 2016-03-07 - here is where we can determing correct html and fix URL HTML and YML based on canonical
 
         CANONICAL=$( ./oldprogs/grepcanonical.sh -h "${HTMLFILE}" )
@@ -102,6 +105,7 @@ _process() {
 
 
 
+        pverbose "BEFORE PARSEDOC"
         # parse the html and place parsed info as a YML in yml/
         # NOTE: can we do without sending url to parsedoc since it reads up file ?
         ./parsedoc.rb $VERBOSE_OPTION "$HTMLFILE" $URL "$YMLFILE"
@@ -109,6 +113,7 @@ _process() {
             # no data in html file, probably wrong url.
             return 1
         fi
+        pverbose "AFTER PARSEDOC"
         # read YML into database
         ./updateyml2db.rb $VERBOSE_OPTION $DOWNLOAD_OPTION "$YMLFILE"
         if [  $? -eq 1 ]; then
@@ -116,6 +121,7 @@ _process() {
             return 1
         fi
         # convert all links to local links so browser can link
+        # # NOTE: this updates the timestamp of the html file and makes it newer than yml, so rake will never stop !
         wiki/src/convert_all_links.sh "$HTMLFILE"
         return 0
     else
@@ -134,6 +140,7 @@ _process() {
      while IFS='' read line
      do
          pinfo ">> ($pctr/${total}) loop: $line      (failed $failctr)"
+         if [[ -n "$line" ]]; then
          _process $line
          if [  $? -eq 0 ]; then
              (( ctr++ ))
@@ -144,6 +151,7 @@ _process() {
              (( failctr++ ))
              echo "$line" >> error.log
              sleep 5
+         fi
          fi
      done < $INFILE
      pdone "$ctr of ${total} movies inserted/updated" 
@@ -232,4 +240,10 @@ then
 else
     echo "Got $*" 1>&2
 fi
+# this is the case of the single url fetch_one
 _process "$1"
+if [  $? -eq 0 ]; then
+    echo "$1" >> url.log
+else
+    echo "$1" >> error.log
+fi
