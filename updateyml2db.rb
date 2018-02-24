@@ -2,9 +2,16 @@
 # ----------------------------------------------------------------------------- #
 #         File: updateyml2db.rb
 #  Description: this updates the movie.sqlite database from a yaml file
+#               Pass the yml/xxxxx.yml file name to update
+#               The update happens on the URL field since this file does not 
+#               have the rowid.
+#               This is called during the initial fetch process. The YML is created by parsedoc
+#               and then this program is called to insert/update the YML data into the database.
+#
+#               This program can be called when the YML is manually updated too.
 #       Author:  
 #         Date: 2016-02-20 - 00:22
-#  Last update: 2016-03-10 19:31
+#  Last update: 2018-02-20 14:38
 #      License: MIT License
 # ----------------------------------------------------------------------------- #
 #
@@ -14,6 +21,7 @@
 #  2016-03-10 - check if imdbid already in database for another url
 #
 # == Changelog
+# - 2018-02-20 - Added comment on top of file
 # - 2016-03-05 - added update_dt so we know when a record was changed, maybe a force_fetch
 # - 2016-03-10 - added check for imdbid already existing. Currently we allow update of earlier rows url.
 
