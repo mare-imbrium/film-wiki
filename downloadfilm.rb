@@ -32,6 +32,7 @@ require 'logger'
 require 'fileutils'
 # URI.decode needed to save file under original name so browsers can link
 # http://ruby-doc.org/stdlib-1.9.3/libdoc/uri/rdoc/URI/Escape.html
+$VERBOSE = nil
 require 'URI'
 # color.rb is in RUBYLIB path (in ~/work/projects/common)
 require 'color'
