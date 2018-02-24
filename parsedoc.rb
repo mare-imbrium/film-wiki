@@ -1,4 +1,4 @@
-#!/usr/bin/env ruby -w
+#!/usr/bin/env ruby
 require 'nokogiri'
 require 'logger'
 require 'fileutils'
@@ -9,14 +9,14 @@ require 'color'
 #  Description: xml-parse the downloaded wiki file into YML hash and store
 #       Author:  r kumar
 #         Date: 2016-02-19 - 20:34
-#  Last update: 2017-03-10 16:10
+#  Last update: 2018-02-23 12:33
 #      License: MIT License
 # ----------------------------------------------------------------------------- #
 # == TODO
 #   2016-03-10 - put all data in infobox into the hash since we only update what is
 #       in table.
 # == Changelog
-#
+# 2018-02-20 - One film had Original Release for date. Added in date parsing.
 # 2016-03-05 - adding create_dt to table so we know how old some row is.
 # 2016-02-19 - I am trying to break the process of fetching and updating the db
 #  into independent steps, so i can modify the DB if the page is updated etc.
@@ -183,7 +183,7 @@ def parse_doc _file, url=nil
           flag = true
           # next was earlier Release date(s) but is now Release dates
           # 2017-03-10 - now it is Release date
-        when "Release date(s)", "Release dates", "Release date"
+        when "Release date(s)", "Release dates", "Release date", "Original release"
           flag = true
           # calc year at this point
           _data = s[1..-1].join(",")
