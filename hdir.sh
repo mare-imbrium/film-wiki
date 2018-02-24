@@ -9,7 +9,7 @@
 #       Author: j kepler  http://github.com/mare-imbrium/canis/
 #         Date: 2016-01-23 - 20:53
 #      License: MIT
-#  Last update: 2016-02-18 18:29
+#  Last update: 2018-02-22 12:17
 # ----------------------------------------------------------------------------- #
 #  hdir.sh  Copyright (C) 2012-2016 j kepler
 #
@@ -64,7 +64,11 @@ SELECT $COLS from movie where ${selcolumn} LIKE "%$STR%" ORDER by year ;
 [[ -z "$MOV" ]] && { echo "No results. quitting." 1>&2; exit 1; }
 
 # loop through result and link title to file
+# # links don't work if put in temp file since base dir becomes temp dir
+OUTPUT=$TMPDIR/tmp.html
 OUTPUT=tmp.html
+#trap 'rm tmp.html; exit' SIGNHUP SIGINT SIGQUIT SIGTERM 
+trap "rm -f $OUTPUT; exit 1" 0 1 2 3 13 15
 echo "Sending output to $OUTPUT"
 # border = 1 is nice but we have to key down 2 times.
  echo "<h1>Movies of $STR </h1>" > $OUTPUT
