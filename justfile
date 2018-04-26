@@ -8,7 +8,7 @@
 #       Author: j kepler  http://github.com/mare-imbrium/canis/
 #         Date: 2018-02-20 - 12:09
 #      License: MIT
-#  Last update: 2018-02-23 11:04
+#  Last update: 2018-03-29 09:40
 # ----------------------------------------------------------------------------- #
 #  justfile  Copyright (C) 2018 j kepler
 # taking this from command.sh
@@ -57,3 +57,10 @@ sync:
     #cut -f1 ./imdbmissing.tsv
     cat ./imdbmissing.tsv
 
+# add wiki page of actor
+actor url:
+	wiki/src/add_link_non_movie.sh -t actors "{{url}}"
+
+# add wiki page of director
+director url:
+	wiki/src/add_link_non_movie.sh -t directors "{{url}}"
