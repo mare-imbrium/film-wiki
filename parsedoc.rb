@@ -9,7 +9,7 @@ require 'color'
 #  Description: xml-parse the downloaded wiki file into YML hash and store
 #       Author:  r kumar
 #         Date: 2016-02-19 - 20:34
-#  Last update: 2018-02-23 12:33
+#  Last update: 2018-02-27 08:36
 #      License: MIT License
 # ----------------------------------------------------------------------------- #
 # == TODO
@@ -62,7 +62,7 @@ def parse_doc _file, url=nil
         $stderr.puts color("WARNING: There appear to be >1 imdbids: #{imdbid}","reverse")
       end
     else
-      $stderr.puts "  IMDBID: #{imdbid} found" if $opt_verbose
+      $stderr.puts "  IMDBID: #{imdbid} found" #if $opt_verbose
     end
   else
     $stderr.puts color("WARNING: No imdbid found. THis could be a novel/story/play or other page.","reverse")
