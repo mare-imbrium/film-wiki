@@ -36,6 +36,10 @@ I am now thinking of dropping the `id` field. Earlier this was used to link with
 
      ./updateyml2db.rb -v yml/Fading_Gigolo.yml
 
+## How to update actors or directors files:
+wiki/src/add_link_non_movie.sh -t actors Spencer__Tracy
+wiki/src/add_link_non_movie.sh -t directors John_Ford
+
 ### TSV files
 
 There are three tab seperated values files exported from the sqlite database. You may import them into sqlite or any db and therefore avoid having to run the above programs.
